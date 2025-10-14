@@ -10,7 +10,7 @@ This repository contains two main modules for monitoring CPU, RAM, and RDP usage
 
 A Windows service for continuously monitoring CPU and RAM usage, as well as active RDP sessions, logging the data to Excel files.
 
-![CPU/RAM/RDP Chart](CPU-Logging-Service\example_chart.png)
+![CPU/RAM/RDP Chart](CPU-Logging-Service/example_chart.png)
 
 ## Features
 
