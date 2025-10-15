@@ -30,6 +30,7 @@ class CPUMonitorService(win32serviceutil.ServiceFramework):
 
     def SvcDoRun(self):
         servicemanager.LogInfoMsg("CPU/RAM Logger Service started.")
+        self.ReportServiceStatus(win32service.SERVICE_RUNNING)
         self.main()
 
     def main(self):
