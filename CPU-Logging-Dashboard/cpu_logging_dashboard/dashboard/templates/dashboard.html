@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CPU, RAM, RDP Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        label {
+            margin-right: 10px;
+        }
+        select {
+            margin-right: 20px;
+            padding: 5px 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+        canvas {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>CPU, RAM, RDP Dashboard</h1>
+
+    <label for="host-select">Host:</label>
+    <select id="host-select">
+        <option value="Hiwi-EDV-2019">Hiwi-EDV-2019</option>
+    </select>
+
+    <label for="time-range">Time range:</label>
+    <select id="time-range">
+        <option value="1h">Last hour</option>
+        <option value="24h">Last 24 hours</option>
+        <option value="7d">Last week</option>
+    </select>
+
+    <canvas id="cpu-ram-rdp-chart" width="800" height="400"></canvas>
+
+    <script>
+        const ctx = document.getElementById('cpu-ram-rdp-chart').getContext('2d');
+
+        let chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    { label: 'CPU %', data: [], borderColor: 'blue', fill: false },
+                    { label: 'RAM %', data: [], borderColor: 'green', fill: false },
+                    { label: 'RDP Active', data: [], borderColor: 'red', fill: false, stepped: true, yAxisID: 'yRDP' }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: { tooltipFormat: 'HH:mm:ss' },
+                        ticks: { maxTicksLimit: 15 }, // default
+                        title: { display: true, text: 'Time' }
+                    },
+                    y: {
+                        type: 'linear',
+                        min: 0,
+                        max: 100,
+                        position: 'left',
+                        title: { display: true, text: 'CPU / RAM (%)' }
+                    },
+                    yRDP: {
+                        type: 'linear',
+                        min: 0,
+                        max: 1,
+                        position: 'right',
+                        title: { display: true, text: 'RDP Active' },
+                        ticks: { stepSize: 1, callback: value => value === 1 ? 'Yes' : 'No' }
+                    }
+                },
+                plugins: { legend: { display: true } }
+            }
+        });
+
+        const hostSelect = document.getElementById('host-select');
+        const rangeSelect = document.getElementById('time-range');
+
+        function getRangeTimes(range) {
+            const now = new Date();
+            let start;
+            if (range === '1h') start = new Date(now.getTime() - 60 * 60 * 1000);
+            else if (range === '24h') start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            else if (range === '7d') start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            return { start, end: now };
+        }
+
+        async function fetchMetrics() {
+            const host = hostSelect.value;
+            const range = rangeSelect.value;
+            const { start, end } = getRangeTimes(range);
+
+            try {
+                const response = await fetch(`/api/metrics/range/${host}/${range}/`);
+                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+                const data = await response.json();
+
+                chart.data.labels = data.map(m => new Date(m.timestamp));
+                chart.data.datasets[0].data = data.map(m => m.cpu_percent);
+                chart.data.datasets[1].data = data.map(m => m.ram_percent);
+                chart.data.datasets[2].data = data.map(m => m.rdp_active ? 1 : 0);
+
+                chart.options.scales.x.min = start;
+                chart.options.scales.x.max = end;
+
+                // Adjust tick density based on range
+                if (range === '1h') chart.options.scales.x.ticks.maxTicksLimit = 15;
+                else if (range === '24h') chart.options.scales.x.ticks.maxTicksLimit = 8;
+                else if (range === '7d') chart.options.scales.x.ticks.maxTicksLimit = 5;
+
+                chart.update();
+            } catch (err) {
+                console.error('Error fetching metrics:', err);
+            }
+        }
+
+        hostSelect.addEventListener('change', fetchMetrics);
+        rangeSelect.addEventListener('change', fetchMetrics);
+
+        setInterval(fetchMetrics, 5000);
+        fetchMetrics();
+    </script>
+</body>
+</html>
