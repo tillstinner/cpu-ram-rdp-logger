@@ -12,6 +12,7 @@ from cpu_logging_collect_data_for_service_dashboard import collect_data_xlsx
 # -------- Parameters --------
 INTERVAL = 2
 LOG_DIR = r"C:\Users\TStinner\Documents\cpu-ram-rdp-logger\CPU-Logging-Dashboard\Logging-Service\Logs"
+API_URL = "http://localhost:8000/api/metrics/" # Post endpoint
 # ----------------------------
 
 
@@ -22,7 +23,6 @@ def send_to_dashboard(data):
     """
     try:
         print(f"Sending data to dashboard: {data}")  # temporary debug
-        API_URL = "http://localhost:8000/api/metrics/"  # POST endpoint
         response = requests.post(API_URL, json=data, timeout=5)
         print(f"Dashboard response: {response.status_code} {response.text}")
         if response.status_code in (200, 201):

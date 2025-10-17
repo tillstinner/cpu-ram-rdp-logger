@@ -102,6 +102,11 @@ class MetricRangeView(APIView):
         serializer = MetricSerializer(metrics, many=True)
         return Response(serializer.data)
     
+class HostListView(APIView):
+    def get(self, request):
+        hosts = Host.objects.values_list('name', flat=True)
+        return Response(list(hosts))
+
 
 def dashboard_view(request):
     return render(request, 'dashboard.html')

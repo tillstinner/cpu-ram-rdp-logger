@@ -35,9 +35,7 @@
     <h1>CPU, RAM, RDP Dashboard</h1>
 
     <label for="host-select">Host:</label>
-    <select id="host-select">
-        <option value="Hiwi-EDV-2019">Hiwi-EDV-2019</option>
-    </select>
+    <select id="host-select"></select>
 
     <label for="time-range">Time range:</label>
     <select id="time-range">
@@ -51,7 +49,7 @@
     <script>
         const ctx = document.getElementById('cpu-ram-rdp-chart').getContext('2d');
 
-        let chart = new Chart(ctx, {
+        const chart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: [],
@@ -67,23 +65,20 @@
                     x: {
                         type: 'time',
                         time: { tooltipFormat: 'HH:mm:ss' },
-                        ticks: { maxTicksLimit: 15 }, // default
+                        ticks: { maxTicksLimit: 15 },
                         title: { display: true, text: 'Time' }
                     },
                     y: {
-                        type: 'linear',
                         min: 0,
                         max: 100,
-                        position: 'left',
                         title: { display: true, text: 'CPU / RAM (%)' }
                     },
                     yRDP: {
-                        type: 'linear',
                         min: 0,
                         max: 1,
                         position: 'right',
                         title: { display: true, text: 'RDP Active' },
-                        ticks: { stepSize: 1, callback: value => value === 1 ? 'Yes' : 'No' }
+                        ticks: { stepSize: 1, callback: v => v === 1 ? 'Yes' : 'No' }
                     }
                 },
                 plugins: { legend: { display: true } }
@@ -92,6 +87,18 @@
 
         const hostSelect = document.getElementById('host-select');
         const rangeSelect = document.getElementById('time-range');
+
+        async function loadHosts() {
+            try {
+                const res = await fetch('/api/metrics/hosts/');
+                if (!res.ok) throw new Error('Failed to load hosts');
+                const hosts = await res.json();
+                hostSelect.innerHTML = hosts.map(h => `<option value="${h}">${h}</option>`).join('');
+                fetchMetrics();
+            } catch (err) {
+                console.error('Error loading hosts:', err);
+            }
+        }
 
         function getRangeTimes(range) {
             const now = new Date();
@@ -107,10 +114,12 @@
             const range = rangeSelect.value;
             const { start, end } = getRangeTimes(range);
 
+            if (!host) return;
+
             try {
-                const response = await fetch(`/api/metrics/range/${host}/${range}/`);
-                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-                const data = await response.json();
+                const res = await fetch(`/api/metrics/range/${host}/${range}/`);
+                if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+                const data = await res.json();
 
                 chart.data.labels = data.map(m => new Date(m.timestamp));
                 chart.data.datasets[0].data = data.map(m => m.cpu_percent);
@@ -120,10 +129,9 @@
                 chart.options.scales.x.min = start;
                 chart.options.scales.x.max = end;
 
-                // Adjust tick density based on range
-                if (range === '1h') chart.options.scales.x.ticks.maxTicksLimit = 15;
-                else if (range === '24h') chart.options.scales.x.ticks.maxTicksLimit = 8;
-                else if (range === '7d') chart.options.scales.x.ticks.maxTicksLimit = 5;
+                // Adjust tick density
+                chart.options.scales.x.ticks.maxTicksLimit =
+                    range === '1h' ? 15 : range === '24h' ? 8 : 5;
 
                 chart.update();
             } catch (err) {
@@ -135,7 +143,7 @@
         rangeSelect.addEventListener('change', fetchMetrics);
 
         setInterval(fetchMetrics, 5000);
-        fetchMetrics();
+        loadHosts();
     </script>
 </body>
 </html>
