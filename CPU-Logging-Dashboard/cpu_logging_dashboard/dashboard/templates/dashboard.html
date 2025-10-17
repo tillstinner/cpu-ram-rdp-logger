@@ -1,149 +1,207 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>CPU, RAM, RDP Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<title>CPU, RAM, RDP Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body { font-family: 'Inter', sans-serif; margin: 20px; }
+h1 { font-weight: 600; margin-bottom: 16px; }
+label { margin-right: 10px; }
+select, input {
+    margin-right: 20px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+}
+/* Wider select boxes */
+#host-select, #time-range { width: 180px; }
 
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            margin: 20px;
-        }
-        h1 {
-            font-weight: 600;
-            margin-bottom: 16px;
-        }
-        label {
-            margin-right: 10px;
-        }
-        select {
-            margin-right: 20px;
-            padding: 5px 10px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-            font-size: 14px;
-        }
-        canvas {
-            margin-top: 20px;
-        }
-    </style>
+/* Chart height increased */
+canvas { margin-top: 20px; height: 1050px !important; }
+
+.summary { margin-top: 20px; display: flex; gap: 20px; }
+.summary div { flex: 1; background: #f4f4f4; padding: 10px; border-radius: 6px; text-align: center; }
+.bar { height: 20px; background: #4caf50; margin-top: 5px; border-radius: 4px; }
+.time-text { margin-top: 5px; font-size: 12px; color: #333; }
+</style>
 </head>
 <body>
-    <h1>CPU, RAM, RDP Dashboard</h1>
+<h1>CPU, RAM, RDP Dashboard</h1>
 
-    <label for="host-select">Host:</label>
-    <select id="host-select"></select>
+<label for="host-select">Host:</label>
+<select id="host-select"></select>
 
-    <label for="time-range">Time range:</label>
-    <select id="time-range">
-        <option value="1h">Last hour</option>
-        <option value="24h">Last 24 hours</option>
-        <option value="7d">Last week</option>
-    </select>
+<label for="time-range">Time range:</label>
+<select id="time-range">
+    <option value="1h">Last hour</option>
+    <option value="24h">Last 24 hours</option>
+    <option value="7d">Last week</option>
+</select>
 
-    <canvas id="cpu-ram-rdp-chart" width="800" height="400"></canvas>
+<label for="cpu-threshold">CPU Threshold %:</label>
+<input type="number" id="cpu-threshold" value="10">
 
-    <script>
-        const ctx = document.getElementById('cpu-ram-rdp-chart').getContext('2d');
+<label for="ram-threshold">RAM Threshold %:</label>
+<input type="number" id="ram-threshold" value="50">
 
-        const chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [
-                    { label: 'CPU %', data: [], borderColor: 'blue', fill: false },
-                    { label: 'RAM %', data: [], borderColor: 'green', fill: false },
-                    { label: 'RDP Active', data: [], borderColor: 'red', fill: false, stepped: true, yAxisID: 'yRDP' }
-                ]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    x: {
-                        type: 'time',
-                        time: { tooltipFormat: 'HH:mm:ss' },
-                        ticks: { maxTicksLimit: 15 },
-                        title: { display: true, text: 'Time' }
-                    },
-                    y: {
-                        min: 0,
-                        max: 100,
-                        title: { display: true, text: 'CPU / RAM (%)' }
-                    },
-                    yRDP: {
-                        min: 0,
-                        max: 1,
-                        position: 'right',
-                        title: { display: true, text: 'RDP Active' },
-                        ticks: { stepSize: 1, callback: v => v === 1 ? 'Yes' : 'No' }
-                    }
-                },
-                plugins: { legend: { display: true } }
+<canvas id="cpu-ram-rdp-chart" width="2000" height="1050"></canvas>
+
+<div class="summary">
+    <div>
+        <strong>CPU over threshold</strong>
+        <div id="cpu-bar" class="bar" style="width:0%"></div>
+        <div id="cpu-text">0%</div>
+        <div id="cpu-time" class="time-text">0 s</div>
+    </div>
+    <div>
+        <strong>RAM over threshold</strong>
+        <div id="ram-bar" class="bar" style="width:0%"></div>
+        <div id="ram-text">0%</div>
+        <div id="ram-time" class="time-text">0 s</div>
+    </div>
+    <div>
+        <strong>RDP active</strong>
+        <div id="rdp-bar" class="bar" style="width:0%"></div>
+        <div id="rdp-text">0%</div>
+        <div id="rdp-time" class="time-text">0 s</div>
+    </div>
+</div>
+
+<script>
+const ctx = document.getElementById('cpu-ram-rdp-chart').getContext('2d');
+const chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: [],
+        datasets: [
+            { label: 'CPU %', data: [], borderColor: 'blue', fill: false, pointStyle: false },
+            { label: 'RAM %', data: [], borderColor: 'green', fill: false, pointStyle: false },
+            { label: 'RDP Active', data: [], borderColor: 'red', fill: false, stepped: true, yAxisID: 'yRDP', pointStyle: false }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { display: true },
+            title: { display: true, text: 'Host: ', font: { size: 16 } }
+        },
+        scales: {
+            x: { type: 'time', time: { tooltipFormat: 'HH:mm:ss' }, ticks: { maxTicksLimit: 15 }, title: { display: true, text: 'Time' } },
+            y: { min: 0, max: 100, title: { display: true, text: 'CPU / RAM (%)' } },
+            yRDP: { min: 0, max: 1, position: 'right', title: { display: true, text: 'RDP Active' }, ticks: { stepSize: 1, callback: v => v===1?'Yes':'No' } }
+        }
+    }
+});
+
+const hostSelect = document.getElementById('host-select');
+const rangeSelect = document.getElementById('time-range');
+const cpuThresholdInput = document.getElementById('cpu-threshold');
+const ramThresholdInput = document.getElementById('ram-threshold');
+
+function updateSummary(cpuPercent, cpuSec, ramPercent, ramSec, rdpPercent, rdpSec){
+    document.getElementById('cpu-bar').style.width = cpuPercent+'%';
+    document.getElementById('cpu-text').textContent = cpuPercent.toFixed(1)+'%';
+    document.getElementById('cpu-time').textContent = cpuSec.toFixed(1)+' s';
+
+    document.getElementById('ram-bar').style.width = ramPercent+'%';
+    document.getElementById('ram-text').textContent = ramPercent.toFixed(1)+'%';
+    document.getElementById('ram-time').textContent = ramSec.toFixed(1)+' s';
+
+    document.getElementById('rdp-bar').style.width = rdpPercent+'%';
+    document.getElementById('rdp-text').textContent = rdpPercent.toFixed(1)+'%';
+    document.getElementById('rdp-time').textContent = rdpSec.toFixed(1)+' s';
+}
+
+async function loadHosts() {
+    try {
+        const res = await fetch('/api/metrics/hosts/');
+        if(!res.ok) throw new Error('Failed to load hosts');
+        const hosts = await res.json();
+        hostSelect.innerHTML = hosts.map(h => `<option value="${h}">${h}</option>`).join('');
+        fetchMetrics();
+    } catch(err){ console.error(err); }
+}
+
+function getRangeTimes(range){
+    const now = new Date();
+    let start;
+    if(range==='1h') start = new Date(now.getTime() - 3600*1000);
+    else if(range==='24h') start = new Date(now.getTime() - 24*3600*1000);
+    else if(range==='7d') start = new Date(now.getTime() - 7*24*3600*1000);
+    return {start, end: now};
+}
+
+async function fetchMetrics(){
+    const host = hostSelect.value;
+    const range = rangeSelect.value;
+    const {start, end} = getRangeTimes(range);
+    if(!host) return;
+
+    // Update chart title with host
+    chart.options.plugins.title.text = `Host: ${host}`;
+
+    try{
+        const res = await fetch(`/api/metrics/range/${host}/${range}/`);
+        if(!res.ok) throw new Error(`HTTP error ${res.status}`);
+        const data = await res.json();
+
+        const timestamps = data.map(m => new Date(m.timestamp));
+        const cpuData=[], ramData=[], rdpData=[];
+
+        const cpuThreshold=parseFloat(cpuThresholdInput.value)||0;
+        const ramThreshold=parseFloat(ramThresholdInput.value)||0;
+
+        let timeOverCPU=0, timeOverRAM=0, timeOverRDP=0, totalTime=0;
+
+        for(let i=0;i<data.length;i++){
+            if(i===0){
+                cpuData.push(data[i].cpu_percent);
+                ramData.push(data[i].ram_percent);
+                rdpData.push(data[i].rdp_active?1:0);
+                continue;
             }
-        });
+            const gap=(timestamps[i]-timestamps[i-1])/1000;
 
-        const hostSelect = document.getElementById('host-select');
-        const rangeSelect = document.getElementById('time-range');
+            cpuData.push(gap>5?null:data[i].cpu_percent);
+            ramData.push(gap>5?null:data[i].ram_percent);
+            rdpData.push((gap>5 || data[i].rdp_active!==data[i-1].rdp_active)?null:(data[i].rdp_active?1:0));
 
-        async function loadHosts() {
-            try {
-                const res = await fetch('/api/metrics/hosts/');
-                if (!res.ok) throw new Error('Failed to load hosts');
-                const hosts = await res.json();
-                hostSelect.innerHTML = hosts.map(h => `<option value="${h}">${h}</option>`).join('');
-                fetchMetrics();
-            } catch (err) {
-                console.error('Error loading hosts:', err);
+            if(gap<=5){
+                totalTime+=gap;
+                if(data[i].cpu_percent>cpuThreshold) timeOverCPU+=gap;
+                if(data[i].ram_percent>ramThreshold) timeOverRAM+=gap;
+                if(data[i].rdp_active) timeOverRDP+=gap;
             }
         }
 
-        function getRangeTimes(range) {
-            const now = new Date();
-            let start;
-            if (range === '1h') start = new Date(now.getTime() - 60 * 60 * 1000);
-            else if (range === '24h') start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-            else if (range === '7d') start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            return { start, end: now };
-        }
+        const cpuPercent=totalTime?timeOverCPU/totalTime*100:0;
+        const ramPercent=totalTime?timeOverRAM/totalTime*100:0;
+        const rdpPercent=totalTime?timeOverRDP/totalTime*100:0;
 
-        async function fetchMetrics() {
-            const host = hostSelect.value;
-            const range = rangeSelect.value;
-            const { start, end } = getRangeTimes(range);
+        updateSummary(cpuPercent, timeOverCPU, ramPercent, timeOverRAM, rdpPercent, timeOverRDP);
 
-            if (!host) return;
+        chart.data.labels = timestamps;
+        chart.data.datasets[0].data = cpuData;
+        chart.data.datasets[1].data = ramData;
+        chart.data.datasets[2].data = rdpData;
+        chart.options.scales.x.min = start;
+        chart.options.scales.x.max = end;
+        chart.options.scales.x.ticks.maxTicksLimit = range==='1h'?15:range==='24h'?8:5;
+        chart.update();
+    }catch(err){ console.error(err); }
+}
 
-            try {
-                const res = await fetch(`/api/metrics/range/${host}/${range}/`);
-                if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-                const data = await res.json();
+hostSelect.addEventListener('change', fetchMetrics);
+rangeSelect.addEventListener('change', fetchMetrics);
+cpuThresholdInput.addEventListener('input', fetchMetrics);
+ramThresholdInput.addEventListener('input', fetchMetrics);
 
-                chart.data.labels = data.map(m => new Date(m.timestamp));
-                chart.data.datasets[0].data = data.map(m => m.cpu_percent);
-                chart.data.datasets[1].data = data.map(m => m.ram_percent);
-                chart.data.datasets[2].data = data.map(m => m.rdp_active ? 1 : 0);
-
-                chart.options.scales.x.min = start;
-                chart.options.scales.x.max = end;
-
-                // Adjust tick density
-                chart.options.scales.x.ticks.maxTicksLimit =
-                    range === '1h' ? 15 : range === '24h' ? 8 : 5;
-
-                chart.update();
-            } catch (err) {
-                console.error('Error fetching metrics:', err);
-            }
-        }
-
-        hostSelect.addEventListener('change', fetchMetrics);
-        rangeSelect.addEventListener('change', fetchMetrics);
-
-        setInterval(fetchMetrics, 5000);
-        loadHosts();
-    </script>
+setInterval(fetchMetrics,5000);
+loadHosts();
+</script>
 </body>
 </html>

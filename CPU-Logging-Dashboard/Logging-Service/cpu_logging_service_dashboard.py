@@ -11,8 +11,8 @@ from cpu_logging_collect_data_for_service_dashboard import collect_data_xlsx
 
 # -------- Parameters --------
 INTERVAL = 2
-LOG_DIR = r"C:\CPU-Logging-Dashboard\Logging-Service\Logs"
-API_URL = "http://<ip-address>:8000/api/metrics/" # Post endpoint
+LOG_DIR = r"C:\Users\TStinner\Documents\cpu-ram-rdp-logger\CPU-Logging-Dashboard\Logging-Service\Logs"
+API_URL = "http://192.168.0.182:8000/api/metrics/" # Post endpoint
 # ----------------------------
 
 
