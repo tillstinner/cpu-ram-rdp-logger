@@ -109,10 +109,10 @@ pip install -r requirements.txt
 
 ### Running
 
-Start the Django server (default port 8000):
+Start the Django server:
 
 ```bash
-python manage.py runserver
+python manage.py runserver 0.0.0.0:8000
 ```
 
 Access the dashboard at:
