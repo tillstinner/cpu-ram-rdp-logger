@@ -1,11 +1,14 @@
 # CPU Logging Repository
 
-This repository contains two main modules for monitoring CPU, RAM, and RDP usage on Windows systems:
+This repository contains three main modules for monitoring CPU, RAM, and RDP usage on Windows systems:
 
 1. **CPU-Logging-Service** – runs as a Windows service for background monitoring.
 2. **CPU-Logging** – standalone terminal-based version for manual execution and interactive logging.
+3. **CPU Logging Dashboard** – web-based real-time monitoring of multiple clients.
 
 ![CPU/RAM/RDP Chart](CPU-Logging-Service/example_chart.png)
+
+---
 
 # Module 1: CPU-Logging-Service
 
@@ -42,6 +45,8 @@ python cpu_logging_service.py remove
 ```bash
 python cpu_logging_interpretation.py --input "C:\Logs\cpu_ram_rdp_log_YYYY-MM-DD_HH-MM-SS.xlsx" --cpu 80 --ram 70
 ```
+
+---
 
 # Module 2: CPU-Logging (Predecessor)
 
@@ -80,6 +85,57 @@ pip install -r requirements_logging.txt  # specific to CPU-Logging module
 
 ---
 
+# Module 3: CPU Logging Dashboard
+
+Web-based real-time monitoring of multiple clients, visualizing metrics collected by the service.
+
+![CPU/RAM/RDP Dashboard](CPU-Logging-Dashboard/dashboard_img.png)
+
+## Features
+
+* Displays CPU %, RAM %, and RDP activity for multiple hosts.
+* Live updates every 5 seconds.
+* Input thresholds for CPU and RAM to calculate % of time above thresholds.
+* Summary bars display percentage and actual time (seconds) above thresholds.
+* Handles gaps in logging and breaks RDP lines when state changes.
+
+## Installation
+
+### Dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+### Running
+
+Start the Django server (default port 8000):
+
+```bash
+python manage.py runserver
+```
+
+Access the dashboard at:
+
+```
+http://<server-ip>:8000/dashboard/
+```
+
+### Client Setup
+
+The client service must run the `CPU-Logging-Dashboard\Logging-Service\cpu_logging_service_dashboard.py` script in the same way as the Windows service module.
+
+* Ensure the `API_URL` in the script points to the Django server IP.
+* Logs CPU, RAM, and RDP activity and sends metrics to the dashboard in real time.
+
+### Usage
+
+* Select the host and time range.
+* Adjust CPU/RAM threshold to see time-over-threshold calculations update live.
+* Visual summary shows bars and seconds spent above thresholds.
+
+---
+
 # Author
 
 Till Stinner
@@ -94,3 +150,4 @@ MIT License
 
 * CPU-Logging-Service is intended for continuous background monitoring.
 * CPU-Logging is intended for interactive, terminal-based logging and is the predecessor of the service version.
+* CPU Logging Dashboard provides a real-time web interface for monitoring multiple clients.
